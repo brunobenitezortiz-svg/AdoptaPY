@@ -1,0 +1,226 @@
+rules_version = '2';
+
+service cloud.firestore {
+match /databases/{database}/documents {
+
+function autenticado() {
+  return request.auth != null;
+}
+
+function usuarioExiste() {
+  return autenticado()
+    && exists(
+      /databases/$(database)/documents/users/$(request.auth.uid)
+    );
+}
+
+function rolUsuario() {
+  return get(
+    /databases/$(database)/documents/users/$(request.auth.uid)
+  ).data.rol;
+}
+
+function esAdoptante() {
+  return usuarioExiste() && rolUsuario() == 'adoptante';
+}
+
+function esRefugio() {
+  return usuarioExiste() && rolUsuario() == 'refugio';
+}
+
+function camposMascotaValidos(datos) {
+  return datos.keys().hasAll([
+      'nombre', 'especie', 'raza', 'edad', 'sexo',
+      'tamano', 'descripcion', 'imagenUrl', 'estado',
+      'refugioId', 'fechaPublicacion'
+    ])
+    && datos.keys().hasOnly([
+      'nombre', 'especie', 'raza', 'edad', 'sexo',
+      'tamano', 'descripcion', 'imagenUrl', 'estado',
+      'refugioId', 'fechaPublicacion', 'solicitudAceptadaId'
+    ]);
+}
+
+match /users/{uid} {
+  allow create: if autenticado()
+    && request.auth.uid == uid
+    && request.resource.data.keys().hasAll([
+      'nombre', 'email', 'rol', 'fechaRegistro'
+    ])
+    && request.resource.data.keys().hasOnly([
+      'nombre', 'email', 'rol', 'fechaRegistro'
+    ])
+    && request.resource.data.rol in ['adoptante', 'refugio']
+    && request.resource.data.email == request.auth.token.email
+    && request.resource.data.fechaRegistro == request.time;
+
+  // Permitir consultar un perfil individual, pero no listar usuarios.
+  allow get: if autenticado();
+  allow list: if false;
+
+  // Los perfiles no pueden modificarse ni eliminarse desde el cliente.
+  allow update, delete: if false;
+}
+
+match /mascotas/{mascotaId} {
+  allow get, list: if autenticado();
+
+  // Solo un refugio puede publicar mascotas a su propio nombre.
+  allow create: if esRefugio()
+    && camposMascotaValidos(request.resource.data)
+    && request.resource.data.refugioId == request.auth.uid
+    && request.resource.data.estado == 'disponible'
+    && !request.resource.data.keys().hasAny([
+      'solicitudAceptadaId'
+    ]);
+
+  // La mascota solo puede pasar a adoptada mediante una
+  // transacción vinculada a una solicitud aceptada.
+  allow update: if esRefugio()
+    && resource.data.refugioId == request.auth.uid
+    && request.resource.data.refugioId == resource.data.refugioId
+    && camposMascotaValidos(request.resource.data)
+    && (
+      (
+        request.resource.data.estado == 'disponible'
+        && resource.data.estado == 'disponible'
+        && !request.resource.data.keys().hasAny([
+          'solicitudAceptadaId'
+        ])
+      )
+      ||
+      (
+        request.resource.data.estado == 'adoptado'
+        && (
+          (
+            resource.data.estado == 'adoptado'
+            && request.resource.data.solicitudAceptadaId
+              == resource.data.solicitudAceptadaId
+          )
+          ||
+          (
+            resource.data.estado == 'disponible'
+            && request.resource.data.solicitudAceptadaId is string
+            && existsAfter(
+              /databases/$(database)/documents/solicitudes/$(request.resource.data.solicitudAceptadaId)
+            )
+            && getAfter(
+              /databases/$(database)/documents/solicitudes/$(request.resource.data.solicitudAceptadaId)
+            ).data.mascotaId == mascotaId
+            && getAfter(
+              /databases/$(database)/documents/solicitudes/$(request.resource.data.solicitudAceptadaId)
+            ).data.refugioId == request.auth.uid
+            && getAfter(
+              /databases/$(database)/documents/solicitudes/$(request.resource.data.solicitudAceptadaId)
+            ).data.estado == 'aceptada'
+          )
+        )
+      )
+    );
+
+  allow delete: if esRefugio()
+    && resource.data.refugioId == request.auth.uid
+    && resource.data.estado != 'adoptado';
+}
+
+match /favoritos/{favoritoId} {
+  allow get, list: if autenticado()
+    && resource.data.usuarioId == request.auth.uid;
+
+  allow create: if esAdoptante()
+    && request.resource.data.keys().hasAll([
+      'usuarioId', 'mascotaId', 'fecha'
+    ])
+    && request.resource.data.keys().hasOnly([
+      'usuarioId', 'mascotaId', 'fecha'
+    ])
+    && request.resource.data.usuarioId == request.auth.uid
+    && exists(
+      /databases/$(database)/documents/mascotas/$(request.resource.data.mascotaId)
+    );
+
+  allow delete: if esAdoptante()
+    && resource.data.usuarioId == request.auth.uid;
+
+  allow update: if false;
+}
+
+match /solicitudes/{solicitudId} {
+  allow get, list: if autenticado()
+    && (
+      (
+        esAdoptante()
+        && resource.data.adoptanteId == request.auth.uid
+      )
+      ||
+      (
+        esRefugio()
+        && resource.data.refugioId == request.auth.uid
+      )
+    );
+
+  allow create: if esAdoptante()
+    && request.resource.data.keys().hasAll([
+      'mascotaId', 'adoptanteId', 'refugioId',
+      'estado', 'mensaje', 'fechaSolicitud'
+    ])
+    && request.resource.data.keys().hasOnly([
+      'mascotaId', 'adoptanteId', 'refugioId',
+      'estado', 'mensaje', 'fechaSolicitud'
+    ])
+    && request.resource.data.adoptanteId == request.auth.uid
+    && request.resource.data.estado == 'pendiente'
+    && exists(
+      /databases/$(database)/documents/mascotas/$(request.resource.data.mascotaId)
+    )
+    && get(
+      /databases/$(database)/documents/mascotas/$(request.resource.data.mascotaId)
+    ).data.estado == 'disponible'
+    && get(
+      /databases/$(database)/documents/mascotas/$(request.resource.data.mascotaId)
+    ).data.refugioId == request.resource.data.refugioId;
+
+  // El adoptante puede cancelar su solicitud pendiente.
+  // El refugio puede rechazarla o aceptarla si la mascota
+  // queda adoptada y vinculada a esa solicitud en la transacción.
+  allow update: if autenticado()
+    && request.resource.data.diff(resource.data)
+      .affectedKeys().hasOnly(['estado'])
+    && (
+      (
+        esAdoptante()
+        && resource.data.adoptanteId == request.auth.uid
+        && resource.data.estado == 'pendiente'
+        && request.resource.data.estado == 'cancelada'
+      )
+      ||
+      (
+        esRefugio()
+        && resource.data.refugioId == request.auth.uid
+        && resource.data.estado == 'pendiente'
+        && (
+          request.resource.data.estado == 'rechazada'
+          ||
+          (
+            request.resource.data.estado == 'aceptada'
+            && getAfter(
+              /databases/$(database)/documents/mascotas/$(resource.data.mascotaId)
+            ).data.estado == 'adoptado'
+            && getAfter(
+              /databases/$(database)/documents/mascotas/$(resource.data.mascotaId)
+            ).data.solicitudAceptadaId == solicitudId
+          )
+        )
+      )
+    );
+
+  allow delete: if false;
+}
+
+// Todo lo no permitido expresamente queda denegado.
+match /{documento=**} {
+  allow read, write: if false;
+}
+
+}
+}

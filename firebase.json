@@ -1,0 +1,29 @@
+
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "adopta-mascotas-3fc97",
+          "appId": "1:1098685456166:android:04fc46bebd919d3c08ebe7",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "adopta-mascotas-3fc97",
+          "configurations": {
+            "android": "1:1098685456166:android:04fc46bebd919d3c08ebe7",
+            "ios": "1:1098685456166:ios:4b5a71d2ad8ca07108ebe7",
+            "macos": "1:1098685456166:ios:4b5a71d2ad8ca07108ebe7",
+            "web": "1:1098685456166:web:75b03ac6a9f4823108ebe7",
+            "windows": "1:1098685456166:web:586a92fadcfe971808ebe7"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

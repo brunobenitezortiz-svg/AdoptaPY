@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1098685456166",
+    "project_id": "adopta-mascotas-3fc97",
+    "storage_bucket": "adopta-mascotas-3fc97.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1098685456166:android:04fc46bebd919d3c08ebe7",
+        "android_client_info": {
+          "package_name": "com.example.adopta_mascotas"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDtmTB9qqwI_nf1X-3EJqUq6MnepQCM5UA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
