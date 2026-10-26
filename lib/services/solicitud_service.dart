@@ -6,10 +6,16 @@ class SolicitudService {
 final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
 Future<void> crearSolicitud({
-required String mascotaId,
-required String adoptanteId,
-required String refugioId,
-required String mensaje,
+  required String mascotaId,
+  required String adoptanteId,
+  required String refugioId,
+  required String mensaje,
+  String? tipoVivienda,
+  bool? tienePatio,
+  String? tiempoDisponible,
+  bool? tieneHijos,
+  String? otrasMascotas,
+  bool? experienciaMascotas,
 }) async {
 final existentes = await _firestore
 .collection('solicitudes')
@@ -53,6 +59,12 @@ final solicitud = Solicitud(
   estado: 'pendiente',
   mensaje: mensaje.trim(),
   fechaSolicitud: DateTime.now(),
+  tipoVivienda: tipoVivienda,
+  tienePatio: tienePatio,
+  tiempoDisponible: tiempoDisponible,
+  tieneHijos: tieneHijos,
+  otrasMascotas: otrasMascotas,
+  experienciaMascotas: experienciaMascotas,
 );
 
 await _firestore.collection('solicitudes').add({

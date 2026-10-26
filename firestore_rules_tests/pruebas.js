@@ -235,10 +235,22 @@ async function main() {
     false
   );
 
+ 
   // 2. Creación y protección de perfiles.
 
+  function datosUsuario(nombre, email, rol, aceptoTerminos = true) {
+    return {
+      nombre,
+      email,
+      rol,
+      fechaRegistro: serverTimestamp(),
+      aceptoTerminos,
+      fechaAceptacion: serverTimestamp(),
+    };
+  }
+
   await probar(
-    "Usuario autenticado puede crear su propio perfil",
+    "Usuario autenticado puede crear su propio perfil aceptando los términos",
     () =>
       setDoc(
         doc(
@@ -246,12 +258,11 @@ async function main() {
           "users",
           "nuevoAdoptante"
         ),
-        {
-          nombre: "Nuevo adoptante",
-          email: "nuevo@example.com",
-          rol: "adoptante",
-          fechaRegistro: serverTimestamp(),
-        }
+        datosUsuario(
+          "Nuevo adoptante",
+          "nuevo@example.com",
+          "adoptante"
+        )
       ),
     true
   );
@@ -259,12 +270,14 @@ async function main() {
   await probar(
     "Usuario no puede crear el perfil de otra persona",
     () =>
-      setDoc(doc(adoptante, "users", "perfilAjeno"), {
-        nombre: "Perfil ajeno",
-        email: "ajeno@example.com",
-        rol: "adoptante",
-        fechaRegistro: serverTimestamp(),
-      }),
+      setDoc(
+        doc(adoptante, "users", "perfilAjeno"),
+        datosUsuario(
+          "Perfil ajeno",
+          "ajeno@example.com",
+          "adoptante"
+        )
+      ),
     false
   );
 
@@ -277,12 +290,11 @@ async function main() {
           "users",
           "usuarioInvalido"
         ),
-        {
-          nombre: "Usuario inválido",
-          email: "invalido@example.com",
-          rol: "administrador",
-          fechaRegistro: serverTimestamp(),
-        }
+        datosUsuario(
+          "Usuario inválido",
+          "invalido@example.com",
+          "administrador"
+        )
       ),
     false
   );
@@ -295,6 +307,68 @@ async function main() {
       }),
     false
   );
+
+  // Nuevas pruebas de aceptación de términos y privacidad.
+
+  await probar(
+    "Usuario no puede registrarse sin aceptar los términos",
+    () =>
+      setDoc(
+        doc(
+          crearContexto("sinAceptar", "sinaceptar@example.com"),
+          "users",
+          "sinAceptar"
+        ),
+        datosUsuario(
+          "Usuario sin aceptación",
+          "sinaceptar@example.com",
+          "adoptante",
+          false
+        )
+      ),
+    false
+  );
+
+  await probar(
+    "Usuario no puede registrarse sin registrar la aceptación",
+    () =>
+      setDoc(
+        doc(
+          crearContexto("sinCampos", "sincampos@example.com"),
+          "users",
+          "sinCampos"
+        ),
+        {
+          nombre: "Usuario sin campos",
+          email: "sincampos@example.com",
+          rol: "adoptante",
+          fechaRegistro: serverTimestamp(),
+        }
+      ),
+    false
+  );
+
+  await probar(
+    "Usuario no puede registrar una fecha de aceptación arbitraria",
+    () =>
+      setDoc(
+        doc(
+          crearContexto("fechaInvalida", "fecha@example.com"),
+          "users",
+          "fechaInvalida"
+        ),
+        {
+          ...datosUsuario(
+            "Usuario fecha inválida",
+            "fecha@example.com",
+            "adoptante"
+          ),
+          fechaAceptacion: new Date("2020-01-01T00:00:00Z"),
+        }
+      ),
+    false
+  );
+
 
   // 3. Favoritos.
 
@@ -458,6 +532,181 @@ async function main() {
       updateDoc(doc(refugio, "solicitudes", "solSeguridad"), {
         estado: "aceptada",
       }),
+    false
+  );
+
+  
+  // 6. Vigencia de publicaciones y renovaciones.
+
+  const ahora = new Date();
+  const unDia = 24 * 60 * 60 * 1000;
+
+  const fechaReciente = new Date(
+    ahora.getTime() - unDia
+  );
+
+  const fechaVencimientoReciente = new Date(
+    fechaReciente.getTime() + 7 * unDia
+  );
+
+  const fechaAntigua = new Date(
+    ahora.getTime() - 10 * unDia
+  );
+
+  const fechaVencimientoAntigua = new Date(
+    fechaAntigua.getTime() + 7 * unDia
+  );
+
+  // Crear publicaciones de prueba sin aplicar reglas.
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+
+    await setDoc(doc(db, "mascotas", "perroVigente"), {
+      ...datosMascota("refugio1"),
+      fechaPublicacion: fechaReciente,
+      fechaVencimiento: fechaVencimientoReciente,
+    });
+
+    await setDoc(doc(db, "mascotas", "perroVencido"), {
+      ...datosMascota("refugio1"),
+      fechaPublicacion: fechaAntigua,
+      fechaVencimiento: fechaVencimientoAntigua,
+    });
+  });
+
+  function datosSolicitud(mascotaId) {
+    return {
+      mascotaId,
+      adoptanteId: "adoptante1",
+      refugioId: "refugio1",
+      estado: "pendiente",
+      mensaje: "Solicitud de prueba de vencimiento",
+      fechaSolicitud: serverTimestamp(),
+    };
+  }
+
+  await probar(
+    "Adoptante puede solicitar una mascota vigente",
+    () => setDoc(
+      doc(adoptante, "solicitudes", "solVigente"),
+      datosSolicitud("perroVigente")
+    ),
+    true
+  );
+
+  await probar(
+    "Adoptante no puede solicitar una mascota vencida",
+    () => setDoc(
+      doc(adoptante, "solicitudes", "solVencida"),
+      datosSolicitud("perroVencido")
+    ),
+    false
+  );
+
+  await probar(
+    "Refugio puede editar una mascota vigente sin modificar fechas",
+    () => updateDoc(
+      doc(refugio, "mascotas", "perroVigente"),
+      { nombre: "Mascota vigente editada" }
+    ),
+    true
+  );
+
+  await probar(
+    "Refugio no puede modificar arbitrariamente el vencimiento",
+    () => updateDoc(
+      doc(refugio, "mascotas", "perroVigente"),
+      {
+        fechaVencimiento: new Date(
+          ahora.getTime() + 30 * unDia
+        ),
+      }
+    ),
+    false
+  );
+
+  await probar(
+    "Otro refugio no puede renovar una publicación ajena",
+    () => updateDoc(
+      doc(otroRefugio, "mascotas", "perroVencido"),
+      {
+        fechaPublicacion: serverTimestamp(),
+        fechaVencimiento: new Date(
+          ahora.getTime() + 7 * unDia
+        ),
+      }
+    ),
+    false
+  );
+
+  await probar(
+    "Refugio no puede renovar con una duración arbitraria",
+    () => updateDoc(
+      doc(refugio, "mascotas", "perroVencido"),
+      {
+        fechaPublicacion: serverTimestamp(),
+        fechaVencimiento: new Date(
+          ahora.getTime() + 30 * unDia
+        ),
+      }
+    ),
+    false
+  );
+
+  
+  // 7. Prueba positiva de renovación.
+
+  await probar(
+    "Refugio puede renovar su propia publicación vencida",
+    () => updateDoc(
+      doc(refugio, "mascotas", "perroVencido"),
+      {
+        fechaVencimiento: new Date(
+          Date.now() + 7 * 24 * 60 * 60 * 1000
+        ),
+      }
+    ),
+    true
+  );
+
+ 
+  // 8. Publicaciones nuevas con vencimiento.
+
+  await probar(
+    "Refugio puede publicar una mascota con vigencia de 7 dias",
+    () => {
+      const fecha = new Date();
+
+      return setDoc(
+        doc(refugio, "mascotas", "perroNuevoVigente"),
+        {
+          ...datosMascota("refugio1"),
+          fechaPublicacion: fecha,
+          fechaVencimiento: new Date(
+            fecha.getTime() + 7 * 24 * 60 * 60 * 1000
+          ),
+        }
+      );
+    },
+    true
+  );
+
+  await probar(
+    "Refugio no puede publicar una mascota con vigencia de 30 dias",
+    () => {
+      const fecha = new Date();
+
+      return setDoc(
+        doc(refugio, "mascotas", "perroNuevoInvalido"),
+        {
+          ...datosMascota("refugio1"),
+          fechaPublicacion: fecha,
+          fechaVencimiento: new Date(
+            fecha.getTime() + 30 * 24 * 60 * 60 * 1000
+          ),
+        }
+      );
+    },
     false
   );
 

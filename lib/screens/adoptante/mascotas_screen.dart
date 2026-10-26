@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 
 import '../../models/mascota.dart';
@@ -28,6 +29,20 @@ class _MascotasScreenState extends State<MascotasScreen> {
     setState(() {
       _cargarMascotas();
     });
+
+    await _mascotasFuture;
+  }
+
+  String _formatearFecha(DateTime? fecha) {
+    if (fecha == null) {
+      return 'No disponible';
+    }
+
+    final dia = fecha.day.toString().padLeft(2, '0');
+    final mes = fecha.month.toString().padLeft(2, '0');
+    final anio = fecha.year.toString();
+
+    return '$dia/$mes/$anio';
   }
 
   @override
@@ -76,8 +91,12 @@ class _MascotasScreenState extends State<MascotasScreen> {
             );
           }
 
+          // Mostrar solamente publicaciones vigentes
+          // de mascotas disponibles para adopcion.
           final mascotas = (snapshot.data ?? [])
-              .where((mascota) => mascota.estado == 'disponible')
+              .where(
+                (mascota) => mascota.disponibleParaAdopcion,
+              )
               .toList();
 
           if (mascotas.isEmpty) {
@@ -176,6 +195,27 @@ class _MascotasScreenState extends State<MascotasScreen> {
                                 fontSize: 15,
                               ),
                             ),
+
+                            // Fecha visible para el adoptante.
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.calendar_today_outlined,
+                                  size: 17,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Publicado: ${_formatearFecha(mascota.fechaPublicacion)}',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+
                             const SizedBox(height: 12),
                             Text(
                               mascota.descripcion,

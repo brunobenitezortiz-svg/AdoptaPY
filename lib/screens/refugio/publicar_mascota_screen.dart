@@ -102,6 +102,12 @@ class _PublicarMascotaScreenState
           },
         );
       } else {
+        // La publicación tiene una vigencia de siete días.
+        final fechaPublicacion = DateTime.now();
+        final fechaVencimiento = fechaPublicacion.add(
+          const Duration(days: 7),
+        );
+
         final mascota = Mascota(
           id: '',
           nombre: _nombreController.text.trim(),
@@ -114,7 +120,8 @@ class _PublicarMascotaScreenState
           imagenUrl: _imagenUrlController.text.trim(),
           estado: 'disponible',
           refugioId: usuario.uid,
-          fechaPublicacion: DateTime.now(),
+          fechaPublicacion: fechaPublicacion,
+          fechaVencimiento: fechaVencimiento,
         );
 
         await MascotaService().crearMascota(mascota);

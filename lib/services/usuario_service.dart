@@ -1,3 +1,4 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UsuarioService {
@@ -8,12 +9,21 @@ class UsuarioService {
     required String nombre,
     required String email,
     required String rol,
+    required bool aceptoTerminos,
   }) async {
+    if (!aceptoTerminos) {
+      throw Exception(
+        'Debés aceptar los términos y la política de privacidad.',
+      );
+    }
+
     await _firestore.collection('users').doc(uid).set({
       'nombre': nombre,
       'email': email,
       'rol': rol,
       'fechaRegistro': FieldValue.serverTimestamp(),
+      'aceptoTerminos': true,
+      'fechaAceptacion': FieldValue.serverTimestamp(),
     });
   }
 

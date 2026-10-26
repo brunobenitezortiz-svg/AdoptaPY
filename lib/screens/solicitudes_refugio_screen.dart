@@ -147,6 +147,183 @@ class _SolicitudesRefugioScreenState
     }
   }
 
+  String _textoSiNo(bool? valor) {
+    if (valor == null) return 'No informado';
+    return valor ? 'Sí' : 'No';
+  }
+
+  String _textoVivienda(String? valor) {
+    switch (valor) {
+      case 'casa':
+        return 'Casa';
+      case 'departamento':
+        return 'Departamento';
+      case 'otro':
+        return 'Otro';
+      default:
+        return 'No informado';
+    }
+  }
+
+  String _textoTiempo(String? valor) {
+    switch (valor) {
+      case '1-2':
+        return '1 a 2 horas diarias';
+      case '3-5':
+        return '3 a 5 horas diarias';
+      case '6+':
+        return 'Más de 5 horas diarias';
+      default:
+        return 'No informado';
+    }
+  }
+
+  Widget _datoCuestionario({
+    required IconData icono,
+    required String titulo,
+    required String valor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            icono,
+            size: 21,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titulo,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  valor,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _construirCuestionario(Solicitud solicitud) {
+    final tieneCuestionario =
+        solicitud.tipoVivienda != null ||
+        solicitud.tienePatio != null ||
+        solicitud.tiempoDisponible != null ||
+        solicitud.tieneHijos != null ||
+        solicitud.otrasMascotas != null ||
+        solicitud.experienciaMascotas != null;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context)
+            .colorScheme
+            .primaryContainer
+            .withValues(alpha: 0.30),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Theme.of(context)
+              .colorScheme
+              .primary
+              .withValues(alpha: 0.15),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.assignment_outlined,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Información del hogar y cuidados',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Respuestas proporcionadas por el adoptante',
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const Divider(height: 26),
+          if (!tieneCuestionario)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Esta solicitud fue enviada antes de que '
+                'se incorporara el cuestionario de adopción.',
+              ),
+            )
+          else ...[
+            _datoCuestionario(
+              icono: Icons.home_outlined,
+              titulo: 'Tipo de vivienda',
+              valor: _textoVivienda(solicitud.tipoVivienda),
+            ),
+            _datoCuestionario(
+              icono: Icons.yard_outlined,
+              titulo: '¿Tiene patio?',
+              valor: _textoSiNo(solicitud.tienePatio),
+            ),
+            _datoCuestionario(
+              icono: Icons.schedule_outlined,
+              titulo: 'Tiempo disponible para la mascota',
+              valor: _textoTiempo(solicitud.tiempoDisponible),
+            ),
+            _datoCuestionario(
+              icono: Icons.family_restroom_outlined,
+              titulo: '¿Conviven niños en el hogar?',
+              valor: _textoSiNo(solicitud.tieneHijos),
+            ),
+            _datoCuestionario(
+              icono: Icons.pets_outlined,
+              titulo: 'Otras mascotas',
+              valor: solicitud.otrasMascotas?.isNotEmpty == true
+                  ? solicitud.otrasMascotas!
+                  : 'No informado',
+            ),
+            _datoCuestionario(
+              icono: Icons.volunteer_activism_outlined,
+              titulo: 'Experiencia previa con mascotas',
+              valor: _textoSiNo(solicitud.experienciaMascotas),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _construirDatosAdoptante(String adoptanteId) {
     return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       future: FirebaseFirestore.instance
@@ -161,7 +338,8 @@ class _SolicitudesRefugioScreenState
           );
         }
 
-        if (snapshot.hasError || !snapshot.hasData ||
+        if (snapshot.hasError ||
+            !snapshot.hasData ||
             !snapshot.data!.exists) {
           return const ListTile(
             contentPadding: EdgeInsets.zero,
@@ -387,9 +565,11 @@ class _SolicitudesRefugioScreenState
                                   solicitud.adoptanteId,
                                 ),
 
+                                _construirCuestionario(solicitud),
+
                                 const SizedBox(height: 16),
                                 const Text(
-                                  'Mensaje del adoptante:',
+                                  'Motivo de adopción:',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -409,8 +589,7 @@ class _SolicitudesRefugioScreenState
                                         child: OutlinedButton.icon(
                                           onPressed: _procesando
                                               ? null
-                                              : () =>
-                                                  _gestionarSolicitud(
+                                              : () => _gestionarSolicitud(
                                                     solicitud,
                                                     aceptar: false,
                                                   ),
@@ -423,8 +602,7 @@ class _SolicitudesRefugioScreenState
                                         child: ElevatedButton.icon(
                                           onPressed: _procesando
                                               ? null
-                                              : () =>
-                                                  _gestionarSolicitud(
+                                              : () => _gestionarSolicitud(
                                                     solicitud,
                                                     aceptar: true,
                                                   ),

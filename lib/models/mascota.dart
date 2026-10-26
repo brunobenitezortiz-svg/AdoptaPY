@@ -1,3 +1,4 @@
+
 class Mascota {
   final String id;
   final String nombre;
@@ -11,6 +12,7 @@ class Mascota {
   final String estado;
   final String refugioId;
   final DateTime? fechaPublicacion;
+  final DateTime? fechaVencimiento;
 
   Mascota({
     required this.id,
@@ -25,7 +27,39 @@ class Mascota {
     required this.estado,
     required this.refugioId,
     this.fechaPublicacion,
+    this.fechaVencimiento,
   });
+
+  // Calcula el vencimiento de una publicación.
+  DateTime? get vencimiento {
+    if (fechaVencimiento != null) {
+      return fechaVencimiento;
+    }
+
+    if (fechaPublicacion != null) {
+      return fechaPublicacion!.add(
+        const Duration(days: 7),
+      );
+    }
+
+    return null;
+  }
+
+  // Indica si la publicación ya venció.
+  bool get estaVencida {
+    final fechaLimite = vencimiento;
+
+    if (fechaLimite == null) {
+      return true;
+    }
+
+    return !DateTime.now().isBefore(fechaLimite);
+  }
+
+  // Una mascota adoptada no puede estar disponible.
+  bool get disponibleParaAdopcion {
+    return estado == 'disponible' && !estaVencida;
+  }
 
   factory Mascota.fromMap(
     String id,
@@ -45,6 +79,8 @@ class Mascota {
       refugioId: datos['refugioId'] ?? '',
       fechaPublicacion:
           (datos['fechaPublicacion'] as dynamic)?.toDate(),
+      fechaVencimiento:
+          (datos['fechaVencimiento'] as dynamic)?.toDate(),
     );
   }
 
@@ -61,6 +97,8 @@ class Mascota {
       'estado': estado,
       'refugioId': refugioId,
       'fechaPublicacion': fechaPublicacion,
+      if (fechaVencimiento != null)
+        'fechaVencimiento': fechaVencimiento,
     };
   }
 }
