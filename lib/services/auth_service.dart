@@ -1,4 +1,6 @@
+
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -20,6 +22,23 @@ class AuthService {
     return await _auth.signInWithEmailAndPassword(
       email: email,
       password: password,
+    );
+  }
+
+  Future<UserCredential> iniciarSesionConGoogle() async {
+    final proveedorGoogle = GoogleAuthProvider();
+
+    proveedorGoogle.setCustomParameters({
+      'prompt': 'select_account',
+    });
+
+    if (kIsWeb) {
+      return await _auth.signInWithPopup(proveedorGoogle);
+    }
+
+    throw UnsupportedError(
+      'El inicio de sesión con Google está disponible '
+      'por ahora únicamente en la versión web.',
     );
   }
 

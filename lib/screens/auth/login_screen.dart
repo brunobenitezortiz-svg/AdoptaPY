@@ -7,6 +7,7 @@ import '../../services/usuario_service.dart';
 import '../adoptante/home_screen.dart';
 import '../refugio/dashboard_screen.dart';
 import 'registro_screen.dart';
+import 'registro_google_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,6 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _ocultarPassword = true;
+  bool _iniciandoGoogle = false;
 
   @override
   void dispose() {
@@ -117,6 +119,118 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       );
+    }
+  }
+
+  Future<void> _iniciarSesionConGoogle() async {
+    if (_iniciandoGoogle) return;
+
+    setState(() {
+      _iniciandoGoogle = true;
+    });
+
+    try {
+      final credencial =
+          await AuthService().iniciarSesionConGoogle();
+
+      final usuario = credencial.user;
+
+      if (usuario == null) {
+        throw Exception('No se pudo obtener la cuenta de Google.');
+      }
+
+      final documento =
+          await UsuarioService().obtenerUsuario(usuario.uid);
+
+      if (!mounted) return;
+
+      if (!documento.exists) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => const RegistroGoogleScreen(),
+          ),
+        );
+        return;
+      }
+
+      final rol = documento.data()?['rol'];
+
+      if (rol == 'adoptante') {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => const HomeScreen(),
+          ),
+          (route) => false,
+        );
+      } else if (rol == 'refugio') {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => const DashboardScreen(),
+          ),
+          (route) => false,
+        );
+      } else {
+        await AuthService().cerrarSesion();
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'La cuenta tiene un rol no válido.',
+            ),
+          ),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'popup-closed-by-user' ||
+          e.code == 'cancelled-popup-request') {
+        return;
+      }
+
+      String mensaje = 'No se pudo iniciar sesión con Google.';
+
+      if (e.code == 'account-exists-with-different-credential') {
+        mensaje =
+            'Ya existe una cuenta con este correo. '
+            'Iniciá sesión con tu método habitual.';
+      } else if (e.code == 'popup-blocked') {
+        mensaje =
+            'El navegador bloqueó la ventana de Google. '
+            'Permití las ventanas emergentes.';
+      } else if (e.code == 'unauthorized-domain') {
+        mensaje =
+            'Este dominio no está autorizado en Firebase.';
+      } else if (e.code == 'network-request-failed') {
+        mensaje = 'Verificá tu conexión a Internet.';
+      }
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(mensaje),
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error de Google Authentication: $e');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Ocurrió un error al iniciar sesión con Google.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _iniciandoGoogle = false;
+        });
+      }
     }
   }
 
@@ -279,12 +393,10 @@ class _LoginScreenState extends State<LoginScreen> {
       },
     );
 
-    // Se libera después de cerrar el diálogo.
-    // Se espera al final de la transición para evitar
-    // que el campo todavía lo esté utilizando.
     await Future<void>.delayed(
       const Duration(milliseconds: 300),
     );
+
     correoController.dispose();
   }
 
@@ -323,7 +435,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(fontSize: 16),
                 ),
                 const SizedBox(height: 35),
-
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
@@ -344,9 +455,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 18),
-
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _ocultarPassword,
@@ -379,19 +488,17 @@ class _LoginScreenState extends State<LoginScreen> {
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 10),
-
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: _recuperarPassword,
-                    child: const Text('¿Olvidaste tu contraseña?'),
+                    child: const Text(
+                      '¿Olvidaste tu contraseña?',
+                    ),
                   ),
                 ),
-
                 const SizedBox(height: 15),
-
                 SizedBox(
                   height: 50,
                   child: ElevatedButton(
@@ -405,26 +512,27 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 15),
-
                 OutlinedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'El inicio de sesión con Google '
-                          'se conectará con Firebase.',
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.login),
-                  label: const Text('Continuar con Google'),
+                  onPressed: _iniciandoGoogle
+                      ? null
+                      : _iniciarSesionConGoogle,
+                  icon: _iniciandoGoogle
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(Icons.login),
+                  label: Text(
+                    _iniciandoGoogle
+                        ? 'Conectando con Google...'
+                        : 'Continuar con Google',
+                  ),
                 ),
-
                 const SizedBox(height: 25),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
