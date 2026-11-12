@@ -1,7 +1,17 @@
-
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import '../../theme/app_theme.dart';
+
+// ==========================================
+// DOCUMENTOS LEGALES DE ADOPTAPY
+// ==========================================
 
 class DocumentosLegales {
+  // ========================================
+  // TERMINOS DE USO
+  // ========================================
+
   static const String terminos = '''
 TÉRMINOS DE USO — ADOPTA MASCOTAS
 
@@ -37,6 +47,10 @@ No se permite utilizar la aplicación para publicar información falsa, realizar
 
 Esta aplicación se desarrolla con fines educativos. Su funcionamiento no constituye una garantía sobre los procesos de adopción realizados fuera de la plataforma.
 ''';
+
+  // ========================================
+  // POLITICA DE PRIVACIDAD
+  // ========================================
 
   static const String privacidad = '''
 POLÍTICA DE PRIVACIDAD — ADOPTA MASCOTAS
@@ -76,29 +90,297 @@ La aplicación registra esta aceptación y su fecha.
 Adopta Mascotas es un proyecto desarrollado con fines educativos.
 ''';
 
+  // ========================================
+  // ESTILO DE LOS PARRAFOS LEGALES
+  // ========================================
+
+  static Widget _construirParrafo(String contenido) {
+    final texto = contenido.trim();
+
+    final esTituloPrincipal =
+        texto.startsWith('TÉRMINOS DE USO') ||
+        texto.startsWith('POLÍTICA DE PRIVACIDAD');
+
+    final esTituloSeccion = RegExp(r'^\d+\.\s').hasMatch(texto);
+
+    if (esTituloPrincipal) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Text(
+          texto,
+          style: GoogleFonts.quicksand(
+            color: AppColors.primary,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.5,
+            height: 1.5,
+          ),
+        ),
+      );
+    }
+
+    if (esTituloSeccion) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 6, bottom: 2),
+        child: Text(
+          texto,
+          style: GoogleFonts.quicksand(
+            color: AppColors.ink,
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            height: 1.45,
+          ),
+        ),
+      );
+    }
+
+    return Text(
+      texto,
+      style: GoogleFonts.quicksand(
+        color: AppColors.muted,
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        height: 1.75,
+      ),
+    );
+  }
+
+  // ========================================
+  // VENTANA DE DOCUMENTOS LEGALES
+  // ========================================
+
   static void mostrar(
     BuildContext context, {
     required String titulo,
     required String contenido,
   }) {
+    final esPrivacidad = titulo == 'Política de privacidad';
+
+    final parrafos = contenido.trim().split(RegExp(r'\n\s*\n'));
+
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
+        final alturaPantalla = MediaQuery.sizeOf(dialogContext).height;
+
         return AlertDialog(
-          title: Text(titulo),
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 20,
+          ),
+
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+            side: const BorderSide(color: AppColors.border),
+          ),
+
+          titlePadding: const EdgeInsets.fromLTRB(22, 23, 22, 0),
+
+          contentPadding: const EdgeInsets.fromLTRB(22, 18, 22, 6),
+
+          actionsPadding: const EdgeInsets.fromLTRB(22, 13, 22, 20),
+
+          // ==================================
+          // ENCABEZADO
+          // ==================================
+          title: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppColors.celeste, AppColors.primary],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+
+                child: Icon(
+                  esPrivacidad
+                      ? Icons.shield_outlined
+                      : Icons.description_outlined,
+                  color: Colors.white,
+                  size: 25,
+                ),
+              ),
+
+              const SizedBox(width: 13),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titulo,
+                      style: GoogleFonts.quicksand(
+                        color: AppColors.ink,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        height: 1.25,
+                      ),
+                    ),
+
+                    const SizedBox(height: 5),
+
+                    const Text(
+                      'Información de AdoptaPY',
+                      style: TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              IconButton(
+                tooltip: 'Cerrar documento',
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                },
+                icon: const Icon(Icons.close_rounded, color: AppColors.muted),
+              ),
+            ],
+          ),
+
+          // ==================================
+          // CONTENIDO DEL DOCUMENTO
+          // ==================================
           content: SizedBox(
-            width: 450,
-            child: SingleChildScrollView(
-              child: Text(
-                contenido,
-                style: const TextStyle(height: 1.6),
+            width: 490,
+
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: alturaPantalla * 0.57),
+
+              child: SingleChildScrollView(
+                child: SelectionArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ETIQUETA INFORMATIVA
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(15),
+
+                        decoration: BoxDecoration(
+                          color: AppColors.azulSuave,
+                          borderRadius: BorderRadius.circular(17),
+                          border: Border.all(color: AppColors.border),
+                        ),
+
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              esPrivacidad
+                                  ? Icons.lock_outline_rounded
+                                  : Icons.info_outline_rounded,
+                              color: AppColors.primary,
+                              size: 21,
+                            ),
+
+                            const SizedBox(width: 11),
+
+                            Expanded(
+                              child: Text(
+                                esPrivacidad
+                                    ? 'Conocé cómo se utiliza '
+                                          'y protege la información '
+                                          'dentro de AdoptaPY.'
+                                    : 'Conocé las condiciones '
+                                          'y responsabilidades '
+                                          'de uso de AdoptaPY.',
+                                style: const TextStyle(
+                                  color: AppColors.ink,
+                                  fontSize: 12,
+                                  height: 1.55,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 23),
+
+                      // DOCUMENTO COMPLETO
+                      for (final parrafo in parrafos) ...[
+                        _construirParrafo(parrafo),
+                        const SizedBox(height: 13),
+                      ],
+
+                      const SizedBox(height: 2),
+
+                      // MENSAJE INFERIOR
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+
+                        decoration: BoxDecoration(
+                          color: AppColors.azulSuave,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.favorite_rounded,
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
+
+                            SizedBox(width: 11),
+
+                            Expanded(
+                              child: Text(
+                                'AdoptaPY · Un hogar '
+                                'para cada huellita.',
+                                style: TextStyle(
+                                  color: AppColors.primaryDark,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
+
+          // ==================================
+          // BOTON DE CIERRE
+          // ==================================
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cerrar'),
+            SizedBox(
+              width: double.infinity,
+              height: 49,
+
+              child: FilledButton.icon(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                },
+
+                icon: const Icon(Icons.check_rounded, size: 20),
+
+                label: const Text(
+                  'Entendido',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                ),
+              ),
             ),
           ],
         );
@@ -106,19 +388,19 @@ Adopta Mascotas es un proyecto desarrollado con fines educativos.
     );
   }
 
+  // ========================================
+  // MOSTRAR TERMINOS DE USO
+  // ========================================
+
   static void mostrarTerminos(BuildContext context) {
-    mostrar(
-      context,
-      titulo: 'Términos de uso',
-      contenido: terminos,
-    );
+    mostrar(context, titulo: 'Términos de uso', contenido: terminos);
   }
 
+  // ========================================
+  // MOSTRAR POLITICA DE PRIVACIDAD
+  // ========================================
+
   static void mostrarPrivacidad(BuildContext context) {
-    mostrar(
-      context,
-      titulo: 'Política de privacidad',
-      contenido: privacidad,
-    );
+    mostrar(context, titulo: 'Política de privacidad', contenido: privacidad);
   }
 }
